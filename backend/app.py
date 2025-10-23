@@ -8,14 +8,12 @@ import time
 import os  # <-- ADDED
 from dotenv import load_dotenv  # <-- ADDED
 
-# Load environment variables from .env file
 load_dotenv()  # <-- ADDED
 
 app = Flask(__name__)
 CORS(app)
 
 # -------- OpenRouter / GPT-3.5 Turbo Configuration --------
-# Securely load the API key from the environment
 OPENROUTER_KEY = os.getenv("OPENROUTER_KEY")  # <-- CHANGED
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
@@ -124,11 +122,6 @@ def get_unlocked_quiz_index(user_id):
 
 # -------- LLM Request Handler --------
 def generate_llm_response(mode, user_input=None, topic=None, language=None):
-    # Check if the key was loaded correctly
-    if not OPENROUTER_KEY:
-        print("Error: OPENROUTER_KEY not found. Make sure it's in your .env file.")
-        return {"error": "API key not configured."}
-        
     try:
         if mode == "chat":
             prompt = f"""
@@ -174,27 +167,16 @@ def generate_llm_response(mode, user_input=None, topic=None, language=None):
         else:
             return {"error": "Invalid mode"}
 
-        headers = {
-            "Authorization": f"Bearer {OPENROUTER_KEY}",
-            "Content-Type": "application/json"
-        }
-        payload = {
-            "model": "gpt-3.5-turbo",
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0
-        }
+        headers = {"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"}
+        payload = {"model": "gpt-3.5-turbo", "messages": [{"role": "user", "content": prompt}], "temperature": 0}
 
         r = requests.post(OPENROUTER_URL, headers=headers, json=payload)
         if r.status_code != 200:
-            print("OpenRouter API Error:", r.status_code, r.text)
             return {"error": f"API call failed with status {r.status_code}"}
 
         raw_text = r.json()["choices"][0]["message"]["content"]
         match = re.search(r"\{.*\}", raw_text, re.DOTALL)
-        if match:
-            return json.loads(match.group())
-        else:
-            return {"raw_response": raw_text}
+        return json.loads(match.group()) if match else {"raw_response": raw_text}
 
     except Exception as e:
         print("LLM Error:", e)
@@ -210,7 +192,7 @@ def handle_dsa():
     language = data.get("language")
     user_id = data.get("user_id", "default_user")
 
-    # Sequential Quiz Unlocking Check
+    # Sequential unlock logic
     if mode == "quiz":
         unlocked_index = get_unlocked_quiz_index(user_id)
         allowed_topic = QUIZ_SEQUENCE[unlocked_index] if unlocked_index < len(QUIZ_SEQUENCE) else None
@@ -218,28 +200,28 @@ def handle_dsa():
             return jsonify({"error": "Invalid topic"})
         topic_index = QUIZ_SEQUENCE.index(topic)
         if topic_index > unlocked_index:
-            return jsonify({
-                "error": "Quiz locked. Complete previous quiz first.",
-                "unlocked_topic": allowed_topic
-            })
+            return jsonify({"error": "Quiz locked. Complete previous quiz first.", "unlocked_topic": allowed_topic})
 
     start_time = time.time()
-    response_json = {}
 
     # -------- Handle quiz submission --------
     if mode == "quiz_submit" and "answers" in data:
         answers = data["answers"]
         conn = get_db_connection()
         cursor = conn.cursor()
+
+        # Get the last generated questions for this topic
         cursor.execute("""
-            SELECT question, correct_answer
-            FROM user_quiz_attempts
-            WHERE user_id = ? AND topic = ? AND user_answer IS NULL
-            ORDER BY timestamp ASC
+            SELECT question, correct_answer FROM user_quiz_attempts
+            WHERE user_id = ? AND topic = ? AND correct_answer IS NOT NULL
+            ORDER BY id ASC
         """, (user_id, topic))
         rows = cursor.fetchall()
+
         correct_count = 0
         incorrect_count = 0
+
+        # Record answers
         for q_index, user_ans in answers.items():
             if int(q_index) < len(rows):
                 question_text = rows[int(q_index)]["question"]
@@ -253,49 +235,58 @@ def handle_dsa():
                     INSERT INTO user_quiz_attempts (user_id, topic, question, user_answer, correct_answer, is_correct, time_spent_seconds)
                     VALUES (?, ?, ?, ?, ?, ?, ?)
                 """, (user_id, topic, question_text, user_ans, correct_answer, is_correct, 0))
+
         total_questions = correct_count + incorrect_count
         accuracy = (correct_count / total_questions) * 100 if total_questions > 0 else 0
         difficulty = calculate_difficulty(accuracy)
-        # Update progress automatically
+
+        # Update progress (replace if already exists)
+        cursor.execute("DELETE FROM user_progress WHERE user_id = ? AND topic = ?", (user_id, topic))
         cursor.execute("""
             INSERT INTO user_progress (user_id, topic, module, correct_answers, incorrect_answers, total_time, accuracy)
             VALUES (?, ?, ?, ?, ?, ?, ?)
         """, (user_id, topic, "Module 1", correct_count, incorrect_count, 0, accuracy))
+
         conn.commit()
         conn.close()
-        response_json = {"message": "Quiz submitted successfully", "correct_answers": correct_count,
-                         "incorrect_answers": incorrect_count, "accuracy": accuracy, "difficulty": difficulty}
 
-    else:
-        response_json = generate_llm_response(mode, user_input, topic, language)
-        end_time = time.time()
-        time_spent = int(end_time - start_time)
+        return jsonify({
+            "message": "Quiz submitted successfully",
+            "correct_answers": correct_count,
+            "incorrect_answers": incorrect_count,
+            "accuracy": accuracy,
+            "difficulty": difficulty
+        })
 
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        if mode == "chat" and "detected_topic" in response_json:
+    # -------- For quiz/chat/code modes --------
+    response_json = generate_llm_response(mode, user_input, topic, language)
+    end_time = time.time()
+    time_spent = int(end_time - start_time)
+
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    if mode == "chat" and "detected_topic" in response_json:
+        cursor.execute("""
+            INSERT INTO user_doubts (user_id, question, response, detected_topic, complexity)
+            VALUES (?, ?, ?, ?, ?)
+        """, (user_id, user_input, response_json.get("response", ""), response_json.get("detected_topic", ""), response_json.get("complexity", "")))
+    elif mode == "quiz" and "questions" in response_json:
+        for q in response_json["questions"]:
             cursor.execute("""
-                INSERT INTO user_doubts (user_id, question, response, detected_topic, complexity)
+                INSERT INTO user_quiz_attempts (user_id, topic, question, correct_answer, time_spent_seconds)
                 VALUES (?, ?, ?, ?, ?)
-            """, (user_id, user_input, response_json.get("response", ""),
-                  response_json.get("detected_topic", ""), response_json.get("complexity", "")))
-        elif mode == "quiz" and "questions" in response_json:
-            for q in response_json["questions"]:
-                cursor.execute("""
-                    INSERT INTO user_quiz_attempts (user_id, topic, question, correct_answer, time_spent_seconds)
-                    VALUES (?, ?, ?, ?, ?)
-                """, (user_id, topic, q.get("question", ""), q.get("answer", ""), time_spent))
-        elif mode == "code_eval" and "syntax_errors" in response_json:
-            cursor.execute("""
-                INSERT INTO user_code_attempts (user_id, topic, language, code, syntax_errors,
-                                                logic_feedback, time_complexity, space_complexity, suggestion)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, (user_id, topic, language, user_input, response_json.get("syntax_errors", ""),
-                  response_json.get("logic_feedback", ""), response_json.get("time_complexity", ""),
-                  response_json.get("space_complexity", ""), response_json.get("suggestion", "")))
-        conn.commit()
-        conn.close()
+            """, (user_id, topic, q.get("question", ""), q.get("answer", ""), time_spent))
+    elif mode == "code_eval" and "syntax_errors" in response_json:
+        cursor.execute("""
+            INSERT INTO user_code_attempts (user_id, topic, language, code, syntax_errors, logic_feedback,
+                                            time_complexity, space_complexity, suggestion)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (user_id, topic, language, user_input, response_json.get("syntax_errors", ""),
+              response_json.get("logic_feedback", ""), response_json.get("time_complexity", ""),
+              response_json.get("space_complexity", ""), response_json.get("suggestion", "")))
 
+    conn.commit()
+    conn.close()
     return jsonify(response_json)
 
 # -------- New Endpoint: /quiz_topics --------
@@ -308,6 +299,7 @@ def quiz_topics():
     cursor.execute("SELECT DISTINCT topic FROM user_progress WHERE user_id = ?", (user_id,))
     completed_topics = [row["topic"] for row in cursor.fetchall()]
     conn.close()
+
     topics_status = []
     for i, t in enumerate(QUIZ_SEQUENCE):
         if t in completed_topics:
@@ -317,6 +309,7 @@ def quiz_topics():
         else:
             status = "Locked"
         topics_status.append({"topic": t, "status": status})
+
     return jsonify({"topics": topics_status})
 
 # -------- Existing Endpoint: /quiz_history --------
@@ -328,7 +321,7 @@ def get_quiz_history():
     cursor.execute("""
         SELECT topic, question, user_answer, correct_answer, is_correct, time_spent_seconds, timestamp
         FROM user_quiz_attempts
-        WHERE user_id = ?
+        WHERE user_id = ? AND is_correct IS NOT NULL
         ORDER BY timestamp DESC
     """, (user_id,))
     rows = [dict(row) for row in cursor.fetchall()]
