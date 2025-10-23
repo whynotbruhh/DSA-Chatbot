@@ -334,3 +334,202 @@
   font-weight: 500;
   margin-top: 20px;
 }
+/* === Chatbot Page === */
+.chat-container {
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 40px);
+  padding: 20px;
+  background: #f8faff;
+  position: relative;
+}
+
+.chat-title {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #1d4ed8;
+  margin-bottom: 20px;
+}
+
+.chat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 15px;
+  background: #e0ebff;
+  border-radius: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-bottom: 20px; /* leave space for input */
+}
+
+.chat-message {
+  max-width: 70%;
+  padding: 10px 15px;
+  border-radius: 15px;
+  font-size: 1rem;
+  line-height: 1.4;
+  word-wrap: break-word;
+}
+
+.user-msg {
+  align-self: flex-end;
+  background: #2563eb;
+  color: white;
+  border-bottom-right-radius: 0;
+}
+
+.bot-msg {
+  align-self: flex-start;
+  background: #f1f5f9;
+  color: #1e3a8a;
+  border-bottom-left-radius: 0;
+}
+
+.chat-input-container {
+  position: fixed;
+  bottom: 20px;
+  left: 240px; /* default sidebar width */
+  right: 20px;
+  display: flex;
+  gap: 10px;
+  background: #f8faff;
+  padding: 10px 0;
+}
+
+.sidebar.collapsed + .content .chat-input-container {
+  left: 70px; /* when sidebar is collapsed */
+}
+
+.chat-input-container input {
+  flex: 1;
+  padding: 12px 15px;
+  border-radius: 12px;
+  border: 1px solid #cbd5e1;
+  font-size: 1rem;
+}
+
+.chat-input-container button {
+  padding: 12px 20px;
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  cursor: pointer;
+  font-weight: bold;
+  transition: all 0.3s ease;
+}
+
+.chat-input-container button:hover {
+  background-color: #1e40af;
+}
+/* === CodeEval Page === */
+.codeeval-container {
+  padding: 30px;
+  background-color: #f8faff;
+  min-height: 100vh;
+  color: #1e3a8a;
+}
+
+.codeeval-title {
+  font-size: 2rem;
+  font-weight: bold;
+  color: #1d4ed8;
+  margin-bottom: 25px;
+}
+
+.codeeval-card {
+  background: white;
+  padding: 25px;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  max-width: 900px;
+  margin-bottom: 30px;
+}
+
+.codeeval-input,
+.codeeval-select {
+  padding: 10px 15px;
+  border-radius: 8px;
+  border: 1px solid #cbd5e1;
+  font-size: 1rem;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.codeeval-select {
+  max-width: 200px;
+}
+
+.codeeval-editor-wrapper {
+  position: relative;
+  background: #f1f5ff;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid #cbd5e1;
+}
+
+.codeeval-textarea {
+  width: 100%;
+  min-height: 200px;
+  padding: 15px 15px 15px 50px;
+  font-family: "Courier New", Courier, monospace;
+  font-size: 1rem;
+  line-height: 1.4;
+  border: none;
+  resize: vertical;
+  background: transparent;
+  counter-reset: line;
+}
+
+/* Line numbers */
+.codeeval-textarea::before {
+  content: counter(line);
+}
+
+.codeeval-textarea {
+  counter-reset: line;
+}
+
+.codeeval-textarea span {
+  counter-increment: line;
+  display: block;
+}
+
+/* Button styling */
+.codeeval-btn {
+  padding: 12px 20px;
+  background-color: #2563eb;
+  color: white;
+  border: none;
+  border-radius: 12px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  max-width: 200px;
+}
+
+.codeeval-btn:hover {
+  background-color: #1e40af;
+  transform: scale(1.05);
+}
+
+/* Feedback section */
+.codeeval-output h3 {
+  margin-bottom: 15px;
+  color: #1d4ed8;
+}
+
+.codeeval-output-card {
+  background: white;
+  padding: 15px 20px;
+  border-radius: 10px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  margin-bottom: 12px;
+  font-family: "Courier New", Courier, monospace;
+  white-space: pre-wrap;
+  color: #1e3a8a;
+}
