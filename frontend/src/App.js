@@ -1,37 +1,35 @@
-// src/App.js
-import React from "react";
+import React, { useState } from "react";
 import { BrowserRouter as Router, Routes, Route, Link } from "react-router-dom";
 import Quiz from "./components/Quiz";
 import History from "./components/History";
 import Analytics from "./components/Analytics";
 import Chat from "./components/Chat";
 import CodeEval from "./components/CodeEval";
+import "./App.css";
 
 function App() {
+  const [collapsed, setCollapsed] = useState(false);
+  const toggleSidebar = () => setCollapsed(!collapsed);
+
   return (
     <Router>
-      <div>
-        <nav style={{ padding: "10px", borderBottom: "1px solid #ccc" }}>
-          <ul style={{ display: "flex", gap: "20px", listStyle: "none", margin: 0, padding: 0 }}>
-            <li>
-              <Link to="/">Quiz</Link>
-            </li>
-            <li>
-              <Link to="/chat">Chatbot</Link>
-            </li>
-            <li>
-              <Link to="/code">Code Eval</Link>
-            </li>
-            <li>
-              <Link to="/history">History</Link>
-            </li>
-            <li>
-              <Link to="/analytics">Analytics</Link>
-            </li>
-          </ul>
-        </nav>
+      <div className="app-container">
+        {/* Sidebar */}
+        <div className={`sidebar ${collapsed ? "collapsed" : ""}`}>
+          <button className="toggle-btn" onClick={toggleSidebar}>
+            {collapsed ? "☰" : "⮜"}
+          </button>
+          <nav className="sidebar-links">
+            <Link to="/" className="sidebar-link">Quiz</Link>
+            <Link to="/chat" className="sidebar-link">Chatbot</Link>
+            <Link to="/code" className="sidebar-link">Code Eval</Link>
+            <Link to="/history" className="sidebar-link">History</Link>
+            <Link to="/analytics" className="sidebar-link">Analytics</Link>
+          </nav>
+        </div>
 
-        <div style={{ padding: "20px" }}>
+        {/* Main Content */}
+        <div className={`content ${collapsed ? "expanded" : ""}`}>
           <Routes>
             <Route path="/" element={<Quiz />} />
             <Route path="/chat" element={<Chat />} />

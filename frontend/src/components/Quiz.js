@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { fetchQuizTopics, sendQuizRequest, submitQuizAnswers } from "../services/api";
 
 function Quiz() {
@@ -8,6 +8,9 @@ function Quiz() {
   const [answers, setAnswers] = useState({});
   const [submitMsg, setSubmitMsg] = useState("");
   const [error, setError] = useState("");
+
+  const questionSectionRef = useRef(null);
+  const topSectionRef = useRef(null);
 
   const loadTopics = async () => {
     try {
@@ -34,6 +37,9 @@ function Quiz() {
       } else {
         setQuestions(res.data.questions || []);
         setAnswers({});
+        setTimeout(() => {
+          questionSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 200);
       }
     } catch (err) {
       console.error(err);
@@ -41,9 +47,8 @@ function Quiz() {
     }
   };
 
-  const handleCheckboxChange = (qIndex, option) => {
+  const handleCheckboxChange = (qIndex, option) =>
     setAnswers((prev) => ({ ...prev, [qIndex]: option }));
-  };
 
   const handleSubmitQuiz = async () => {
     setSubmitMsg("");
@@ -59,7 +64,10 @@ function Quiz() {
         setSubmitMsg("✅ Quiz submitted successfully!");
         setQuestions([]);
         setAnswers({});
-        loadTopics(); // refresh topic status after submission
+        loadTopics();
+        setTimeout(() => {
+          topSectionRef.current?.scrollIntoView({ behavior: "smooth" });
+        }, 200);
       }
     } catch (err) {
       console.error(err);
@@ -68,51 +76,55 @@ function Quiz() {
   };
 
   return (
-    <div style={{ padding: "20px" }}>
-      <h2>🧩 Take a Quiz</h2>
-
-      <div>
-        {topics.map((t, i) => (
-          <div key={i} style={{ marginBottom: "10px" }}>
-            {t.topic}{" "}
-            <button
-              onClick={() => handleFetchQuiz(t.topic)}
-              disabled={t.status === "Locked"}
-            >
-              {t.status}
-            </button>
-          </div>
-        ))}
+    <div className="quiz-container">
+      <div ref={topSectionRef}>
+        <h2>🧩 Take a Quiz</h2>
+        <div>
+          {topics.map((t, i) => (
+            <div key={i} className="quiz-topic">
+              <span>{t.topic}</span>
+              <button
+                onClick={() => handleFetchQuiz(t.topic)}
+                disabled={t.status === "Locked"}
+              >
+                {t.status}
+              </button>
+            </div>
+          ))}
+        </div>
       </div>
 
       {error && <p style={{ color: "red" }}>{error}</p>}
 
-      <ul>
-        {questions.map((q, i) => (
-          <li key={i} style={{ marginBottom: "15px" }}>
-            <strong>{q.question}</strong>
-            <ul>
-              {q.options.map((opt, j) => (
-                <li key={j}>
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={answers[i] === opt}
-                      onChange={() => handleCheckboxChange(i, opt)}
-                    />{" "}
-                    {opt}
-                  </label>
-                </li>
-              ))}
-            </ul>
-          </li>
-        ))}
-      </ul>
-
-      {questions.length > 0 && (
-        <button onClick={handleSubmitQuiz}>Submit Quiz</button>
-      )}
-      {submitMsg && <p style={{ color: "green" }}>{submitMsg}</p>}
+      <div ref={questionSectionRef}>
+        <ul>
+          {questions.map((q, i) => (
+            <li key={i} className="quiz-question">
+              <strong>{q.question}</strong>
+              <ul>
+                {q.options.map((opt, j) => (
+                  <li key={j}>
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={answers[i] === opt}
+                        onChange={() => handleCheckboxChange(i, opt)}
+                      />{" "}
+                      {opt}
+                    </label>
+                  </li>
+                ))}
+              </ul>
+            </li>
+          ))}
+        </ul>
+        {questions.length > 0 && (
+          <button className="submit-btn" onClick={handleSubmitQuiz}>
+            Submit Quiz
+          </button>
+        )}
+        {submitMsg && <p style={{ color: "green" }}>{submitMsg}</p>}
+      </div>
     </div>
   );
 }

@@ -46,9 +46,7 @@ function Analytics() {
   // --- Group quiz attempts by timestamp ---
   const groupedData = data.reduce((acc, entry) => {
     const key = entry.timestamp;
-    if (!acc[key]) {
-      acc[key] = { topic: entry.topic, correct: 0, total: 0, timestamp: entry.timestamp };
-    }
+    if (!acc[key]) acc[key] = { topic: entry.topic, correct: 0, total: 0, timestamp: entry.timestamp };
     acc[key].total += 1;
     if (entry.is_correct) acc[key].correct += 1;
     return acc;
@@ -62,87 +60,31 @@ function Analytics() {
   const accuracyData = {
     labels: accuracyPoints.map((d) => d.date),
     datasets: [
-      {
-        label: "Accuracy (%)",
-        data: accuracyPoints.map((d) => d.accuracy),
-        borderColor: "blue",
-        backgroundColor: "lightblue",
-        tension: 0.3,
-      },
+      { label: "Accuracy (%)", data: accuracyPoints.map((d) => d.accuracy), borderColor: "blue", backgroundColor: "lightblue", tension: 0.3 },
     ],
   };
 
-  // --- Topic distribution ---
   const topicCounts = data.reduce((acc, cur) => {
     acc[cur.topic] = (acc[cur.topic] || 0) + 1;
     return acc;
   }, {});
-  const topicData = {
-    labels: Object.keys(topicCounts),
-    datasets: [
-      {
-        data: Object.values(topicCounts),
-        backgroundColor: [
-          "#36A2EB",
-          "#FF6384",
-          "#FFCE56",
-          "#8BC34A",
-          "#FF9800",
-          "#9C27B0",
-        ],
-      },
-    ],
-  };
+  const topicData = { labels: Object.keys(topicCounts), datasets: [{ data: Object.values(topicCounts), backgroundColor: ["#36A2EB","#FF6384","#FFCE56","#8BC34A","#FF9800","#9C27B0"] }]};
 
-  // --- Correct / Incorrect Pie ---
-  const correctIncorrectData = {
-    labels: ["Correct", "Incorrect"],
-    datasets: [
-      {
-        data: [totalCorrect, totalIncorrect],
-        backgroundColor: ["#36A2EB", "#FF6384"],
-      },
-    ],
-  };
+  const correctIncorrectData = { labels: ["Correct", "Incorrect"], datasets: [{ data: [totalCorrect, totalIncorrect], backgroundColor: ["#36A2EB","#FF6384"] }]};
 
-  // --- Difficulty Distribution Bar ---
-  const difficultyData = {
-    labels: ["2", "3", "4", "5"],
-    datasets: [
-      {
-        label: "Number of Topics",
-        data: [
-          difficultyCounts[2],
-          difficultyCounts[3],
-          difficultyCounts[4],
-          difficultyCounts[5],
-        ],
-        backgroundColor: ["#FFCE56", "#8BC34A", "#FF9800", "#9C27B0"],
-      },
-    ],
-  };
+  const difficultyData = { labels: ["2","3","4","5"], datasets: [{ label: "Number of Topics", data: [difficultyCounts[2],difficultyCounts[3],difficultyCounts[4],difficultyCounts[5]], backgroundColor: ["#FFCE56","#8BC34A","#FF9800","#9C27B0"] }]};
+
+  const gridStyle = { display: "grid", gridTemplateColumns: "1fr 1fr", gap: "40px", marginTop: "20px" };
+  const cardStyle = { background: "#fff", padding: "20px", borderRadius: "8px", boxShadow: "0 2px 5px rgba(0,0,0,0.1)" };
 
   return (
     <div style={{ padding: "20px" }}>
       <h2>📊 Quiz Analytics</h2>
-
-      <div style={{ width: "600px", margin: "auto" }}>
-        <Line data={accuracyData} />
-      </div>
-
-      <h3 style={{ marginTop: "40px" }}>Topic Distribution</h3>
-      <div style={{ width: "400px", margin: "auto" }}>
-        <Pie data={topicData} />
-      </div>
-
-      <h3 style={{ marginTop: "40px" }}>Total Correct / Incorrect</h3>
-      <div style={{ width: "400px", margin: "auto" }}>
-        <Pie data={correctIncorrectData} />
-      </div>
-
-      <h3 style={{ marginTop: "40px" }}>Difficulty Distribution</h3>
-      <div style={{ width: "500px", margin: "auto" }}>
-        <Bar data={difficultyData} />
+      <div style={gridStyle}>
+        <div style={cardStyle}><h4>Accuracy (%)</h4><Line data={accuracyData} /></div>
+        <div style={cardStyle}><h4>Topic Distribution</h4><Pie data={topicData} /></div>
+        <div style={cardStyle}><h4>Total Correct / Incorrect</h4><Pie data={correctIncorrectData} /></div>
+        <div style={cardStyle}><h4>Difficulty Distribution</h4><Bar data={difficultyData} /></div>
       </div>
     </div>
   );
