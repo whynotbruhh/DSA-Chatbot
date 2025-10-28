@@ -338,6 +338,7 @@
 .chat-container {
   display: flex;
   flex-direction: column;
+  /* Adjusted height to account for the fixed input container */
   height: calc(100vh - 40px);
   padding: 20px;
   background: #f8faff;
@@ -360,7 +361,10 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  margin-bottom: 20px; /* leave space for input */
+  
+  /* --- CRITICAL FIX 1: Add bottom padding to lift the content above the fixed input bar --- */
+  /* The input container is about ~60px tall (12px padding top/bottom + input/button height + 10px gap + 10px padding from the fixed bar's container). Using 80px for safe buffer space. */
+  padding-bottom: 80px; 
 }
 
 .chat-message {
@@ -387,14 +391,19 @@
 }
 
 .chat-input-container {
-  position: fixed;
+  /* --- CRITICAL FIX 2: Ensure the input container is fixed relative to the viewport/page --- */
+  position: fixed; 
   bottom: 20px;
-  left: 240px; /* default sidebar width */
+  /* Use the same values from the .content area */
+  left: 240px; 
   right: 20px;
   display: flex;
   gap: 10px;
-  background: #f8faff;
+  
+  /* --- CRITICAL FIX 3: Add a solid background to prevent message text from showing underneath --- */
+  background: #f8faff; 
   padding: 10px 0;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.08); /* Optional: add a subtle shadow */
 }
 
 .sidebar.collapsed + .content .chat-input-container {

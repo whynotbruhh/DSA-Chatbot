@@ -5,16 +5,26 @@ import json
 import requests
 import re
 import time
-import os  # <-- ADDED
-from dotenv import load_dotenv  # <-- ADDED
+import os
+from dotenv import load_dotenv
 
-load_dotenv()  # <-- ADDED
+load_dotenv()
 
 app = Flask(__name__)
 CORS(app)
 
+# =======================================================
+# 💡 DSA SHORT-TERM MEMORY: BOUNDED QUEUE IMPLEMENTATION
+# =======================================================
+
+# Temporary in-memory storage for conversational history (Short-Term Memory)
+# This acts as a Bounded Queue/Circular Buffer.
+# Key: user_id, Value: List of messages (the Queue)
+CHAT_HISTORY = {} 
+MAX_HISTORY_MESSAGES = 6 # Keep the memory limited to 6 messages (3 user, 3 assistant)
+
 # -------- OpenRouter / GPT-3.5 Turbo Configuration --------
-OPENROUTER_KEY = os.getenv("OPENROUTER_KEY")  # <-- CHANGED
+OPENROUTER_KEY = os.getenv("OPENROUTER_KEY")
 OPENROUTER_URL = "https://openrouter.ai/api/v1/chat/completions"
 
 DB_PATH = "models/progress.db"
@@ -46,6 +56,7 @@ def get_db_connection():
 def initialize_db():
     conn = get_db_connection()
     cursor = conn.cursor()
+    # ... (Database creation logic remains the same) ...
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS user_progress (
         user_id TEXT,
@@ -120,21 +131,31 @@ def get_unlocked_quiz_index(user_id):
     conn.close()
     return result["completed"] if result else 0
 
-# -------- LLM Request Handler --------
-def generate_llm_response(mode, user_input=None, topic=None, language=None):
+# -------- LLM Request Handler (Modified for Short-Term Memory) --------
+def generate_llm_response(mode, user_input=None, topic=None, language=None, history=None):
     try:
         if mode == "chat":
+            # Convert the list of history dictionaries into a string for the prompt
+            history_str = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in history]) if history else "No previous conversation."
+            
             prompt = f"""
-            You are a DSA TutorBot.
+            You are a highly knowledgeable and friendly DSA TutorBot.
             Mode: chat
+            
+            --- Conversation History (Use this history for context to answer the user's latest question) ---
+            {history_str}
+            --- End History ---
+            
             User Question: {user_input}
-            Respond only in strict JSON:
+            
+            Respond only in strict JSON, focusing on the latest question in context:
             {{
                 "detected_topic": "...",
                 "response": "...",
                 "complexity": "..."
             }}
             """
+        # ... (quiz and code_eval modes remain the same) ...
         elif mode == "quiz":
             prompt = f"""
             You are a DSA TutorBot.
@@ -168,6 +189,7 @@ def generate_llm_response(mode, user_input=None, topic=None, language=None):
             return {"error": "Invalid mode"}
 
         headers = {"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"}
+        # Pass the formatted prompt to the LLM
         payload = {"model": "gpt-3.5-turbo", "messages": [{"role": "user", "content": prompt}], "temperature": 0}
 
         r = requests.post(OPENROUTER_URL, headers=headers, json=payload)
@@ -182,7 +204,7 @@ def generate_llm_response(mode, user_input=None, topic=None, language=None):
         print("LLM Error:", e)
         return {"error": "LLM failed or returned invalid JSON"}
 
-# -------- API: /dsa --------
+# -------- API: /dsa (Modified for Short-Term Memory) --------
 @app.route("/dsa", methods=["POST"])
 def handle_dsa():
     data = request.json
@@ -192,7 +214,7 @@ def handle_dsa():
     language = data.get("language")
     user_id = data.get("user_id", "default_user")
 
-    # Sequential unlock logic
+    # Sequential unlock logic (remains the same)
     if mode == "quiz":
         unlocked_index = get_unlocked_quiz_index(user_id)
         allowed_topic = QUIZ_SEQUENCE[unlocked_index] if unlocked_index < len(QUIZ_SEQUENCE) else None
@@ -203,9 +225,13 @@ def handle_dsa():
             return jsonify({"error": "Quiz locked. Complete previous quiz first.", "unlocked_topic": allowed_topic})
 
     start_time = time.time()
+    
+    # 1. Retrieve Current History (The Queue)
+    current_history = CHAT_HISTORY.get(user_id, [])
 
-    # -------- Handle quiz submission --------
+    # -------- Handle quiz submission (remains the same) --------
     if mode == "quiz_submit" and "answers" in data:
+        # ... (Quiz submission logic remains the same) ...
         answers = data["answers"]
         conn = get_db_connection()
         cursor = conn.cursor()
@@ -214,8 +240,8 @@ def handle_dsa():
         cursor.execute("""
             SELECT question, correct_answer FROM user_quiz_attempts
             WHERE user_id = ? AND topic = ? AND correct_answer IS NOT NULL
-            ORDER BY id ASC
-        """, (user_id, topic))
+            ORDER BY id DESC
+        """, (user_id, topic)) # Note: Using DESC here to ensure we grab the latest quiz run's questions
         rows = cursor.fetchall()
 
         correct_count = 0
@@ -258,18 +284,45 @@ def handle_dsa():
             "difficulty": difficulty
         })
 
-    # -------- For quiz/chat/code modes --------
-    response_json = generate_llm_response(mode, user_input, topic, language)
+    # 2. Call LLM, passing history only in chat mode
+    if mode == "chat":
+        response_json = generate_llm_response(mode, user_input, history=current_history)
+    else:
+        response_json = generate_llm_response(mode, user_input, topic, language)
+        
     end_time = time.time()
     time_spent = int(end_time - start_time)
 
     conn = get_db_connection()
     cursor = conn.cursor()
-    if mode == "chat" and "detected_topic" in response_json:
+    
+    # 3. Update the Queue (DSA Logic: Enqueue/Dequeue)
+    if mode == "chat" and "response" in response_json:
+        
+        assistant_response = response_json.get("response", "")
+        
+        # Enqueue User Message
+        current_history.append({"role": "user", "content": user_input})
+        
+        # Enqueue Assistant Message
+        current_history.append({"role": "assistant", "content": assistant_response})
+
+        # Dequeue Oldest Messages (Maintain Bounded Queue/Circular Buffer)
+        # This is the DSA concept in action!
+        if len(current_history) > MAX_HISTORY_MESSAGES:
+            # Drop the oldest elements (the first elements in the list/Queue)
+            current_history = current_history[-MAX_HISTORY_MESSAGES:] 
+
+        # Store the updated Queue back into memory
+        CHAT_HISTORY[user_id] = current_history 
+        
+        # Also persist to DB for long-term doubt history (your existing logic)
         cursor.execute("""
             INSERT INTO user_doubts (user_id, question, response, detected_topic, complexity)
             VALUES (?, ?, ?, ?, ?)
-        """, (user_id, user_input, response_json.get("response", ""), response_json.get("detected_topic", ""), response_json.get("complexity", "")))
+        """, (user_id, user_input, assistant_response, response_json.get("detected_topic", ""), response_json.get("complexity", "")))
+
+    # ... (quiz/code persistence logic remains the same)
     elif mode == "quiz" and "questions" in response_json:
         for q in response_json["questions"]:
             cursor.execute("""
@@ -279,7 +332,7 @@ def handle_dsa():
     elif mode == "code_eval" and "syntax_errors" in response_json:
         cursor.execute("""
             INSERT INTO user_code_attempts (user_id, topic, language, code, syntax_errors, logic_feedback,
-                                            time_complexity, space_complexity, suggestion)
+                                             time_complexity, space_complexity, suggestion)
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (user_id, topic, language, user_input, response_json.get("syntax_errors", ""),
               response_json.get("logic_feedback", ""), response_json.get("time_complexity", ""),
@@ -289,7 +342,7 @@ def handle_dsa():
     conn.close()
     return jsonify(response_json)
 
-# -------- New Endpoint: /quiz_topics --------
+# -------- New Endpoint: /quiz_topics (remains the same) --------
 @app.route("/quiz_topics", methods=["GET"])
 def quiz_topics():
     user_id = request.args.get("user_id", "default_user")
@@ -312,7 +365,7 @@ def quiz_topics():
 
     return jsonify({"topics": topics_status})
 
-# -------- Existing Endpoint: /quiz_history --------
+# -------- Existing Endpoint: /quiz_history (remains the same) --------
 @app.route("/quiz_history", methods=["GET"])
 def get_quiz_history():
     user_id = request.args.get("user_id", "default_user")
@@ -329,4 +382,5 @@ def get_quiz_history():
     return jsonify({"history": rows})
 
 if __name__ == "__main__":
+    # Ensure you are running this with Flask's development server for the CHAT_HISTORY dictionary to work as expected.
     app.run(debug=True)
