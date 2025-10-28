@@ -1,4 +1,32 @@
 /* General layout */
+/* Fixed Top Header */
+.app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 60px;
+  background: linear-gradient(to right, #1e3a8a, #2563eb);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.8rem;
+  font-weight: 600;
+  z-index: 1000;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+}
+
+/* Adjust layout to account for header */
+.app-container {
+  display: flex;
+  flex-direction: row;
+  min-height: 100vh;
+  padding-top: 60px; /* Push content below the header */
+}
+
+/* Keep your existing styles below */
+
 .App {
   display: flex;
   min-height: 100vh;

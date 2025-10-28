@@ -5,6 +5,7 @@ import History from "./components/History";
 import Analytics from "./components/Analytics";
 import Chat from "./components/Chat";
 import CodeEval from "./components/CodeEval";
+import Header from "./Header";
 import "./App.css";
 
 function App() {
@@ -14,6 +15,9 @@ function App() {
   return (
     <Router>
       <div className="app-container">
+        {/* ✅ Fixed Top Header */}
+        <Header />
+
         {/* Sidebar */}
         <div className={`sidebar ${collapsed ? "collapsed" : ""}`}>
           <button className="toggle-btn" onClick={toggleSidebar}>
