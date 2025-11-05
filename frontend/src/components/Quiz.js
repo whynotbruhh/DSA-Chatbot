@@ -8,7 +8,8 @@ function Quiz() {
   const [answers, setAnswers] = useState({});
   const [submitMsg, setSubmitMsg] = useState("");
   const [error, setError] = useState("");
-  const [difficulty, setDifficulty] = useState(null); // ✅ new state for difficulty
+  const [difficulty, setDifficulty] = useState(null);
+  const [reviewData, setReviewData] = useState([]); // ✅ store review after submission
 
   const questionSectionRef = useRef(null);
   const topSectionRef = useRef(null);
@@ -31,6 +32,7 @@ function Quiz() {
     setError("");
     setSubmitMsg("");
     setDifficulty(null);
+    setReviewData([]); // clear old review data
     try {
       const res = await sendQuizRequest({
         mode: "quiz",
@@ -38,16 +40,14 @@ function Quiz() {
         topic,
       });
 
-      console.log("Quiz API Full Response:", res.data); // Debugging
-
+      console.log("Quiz API Full Response:", res.data);
+      const responseData = res.data.response ? res.data.response : res.data;
       if (res.data.error) {
         setError(res.data.error);
         setQuestions([]);
       } else {
-        // ✅ Adjust if backend nests difficulty inside response
-        const responseData = res.data.response ? res.data.response : res.data;
         setQuestions(responseData.questions || []);
-        setDifficulty(responseData.difficulty || null); // ✅ store difficulty
+        setDifficulty(responseData.difficulty || null);
         setAnswers({});
         setTimeout(() => {
           questionSectionRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -71,10 +71,19 @@ function Quiz() {
         topic: selectedTopic,
         answers,
       });
+
       if (res.data.error) setSubmitMsg(res.data.error);
       else {
         setSubmitMsg("✅ Quiz submitted successfully!");
-        setQuestions([]);
+        setReviewData(
+          questions.map((q, i) => ({
+            question: q.question,
+            userAnswer: answers[i] || "No answer selected",
+            correctAnswer: q.answer || "Not available",
+            isCorrect: (answers[i] || "") === (q.answer || ""),
+          }))
+        );
+        setQuestions([]); // clear questions
         setAnswers({});
         setDifficulty(null);
         loadTopics();
@@ -101,7 +110,6 @@ function Quiz() {
     }
   };
 
-  // ✅ Render stars for difficulty
   const renderStars = (level) => {
     if (!level) return null;
     const filled = "⭐".repeat(level);
@@ -116,7 +124,6 @@ function Quiz() {
 
   return (
     <div className="quiz-container">
-      {/* === Header Section === */}
       <div ref={topSectionRef} className="quiz-header">
         <div className="quiz-header-top">
           <h2>🧩 Take a Quiz</h2>
@@ -137,7 +144,6 @@ function Quiz() {
           ))}
         </div>
 
-        {/* ✅ Difficulty Display Below Topics */}
         {difficulty && (
           <div className="difficulty-section">
             <h4>Difficulty:</h4>
@@ -148,7 +154,6 @@ function Quiz() {
 
       {error && <p style={{ color: "red" }}>{error}</p>}
 
-      {/* === Quiz Questions === */}
       <div ref={questionSectionRef}>
         <ul>
           {questions.map((q, i) => (
@@ -179,6 +184,29 @@ function Quiz() {
         )}
 
         {submitMsg && <p style={{ color: "green" }}>{submitMsg}</p>}
+
+        {/* ✅ Review Section */}
+        {reviewData.length > 0 && (
+          <div className="review-section">
+            <h3>📘 Review</h3>
+            <ul>
+              {reviewData.map((item, i) => (
+                <li key={i} className="review-item">
+                  <p>
+                    <strong>Q{i + 1}:</strong> {item.question}
+                  </p>
+                  <p>
+                    <strong>Your Answer:</strong> {item.userAnswer}
+                  </p>
+                  <p>
+                    <strong>Correct Answer:</strong> {item.correctAnswer}{" "}
+                    {item.isCorrect ? "✅" : "❌"}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
       </div>
     </div>
   );
