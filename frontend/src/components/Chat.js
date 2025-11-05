@@ -4,7 +4,11 @@ import { sendChatMessage } from "../services/api";
 function Chat() {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
+  const [keywords, setKeywords] = useState([]); // now stores objects { word, index }
+  const [showKeywords, setShowKeywords] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(null); // ✅ for glowing effect
   const messagesEndRef = useRef(null);
+  const messageRefs = useRef([]); // ✅ refs for scrolling
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -14,11 +18,52 @@ function Chat() {
     scrollToBottom();
   }, [messages]);
 
+  // ✅ Keyword Extractor (multi-word phrases, stopword removal, 3–4 words max)
+  const extractKeywords = (text) => {
+    const stopwords = [
+      "the", "is", "at", "which", "on", "a", "an", "and", "to", "for", "of",
+      "in", "with", "that", "me", "my", "your", "you", "are", "was", "were",
+      "it", "this", "those", "these", "as", "by", "be", "from", "about", "or",
+      "can", "could", "would", "should", "do", "did", "does", "has", "have",
+      "had", "like", "please", "give", "show", "write"
+    ];
+
+    const phrases = text.split(/,|and|or/gi).map(p => p.trim()).filter(Boolean);
+    const extracted = [];
+
+    for (let phrase of phrases) {
+      const cleanWords = phrase
+        .split(/\s+/)
+        .filter(
+          w =>
+            w.length > 1 &&
+            !stopwords.includes(w.toLowerCase()) &&
+            isNaN(w)
+        )
+        .slice(0, 4);
+
+      if (cleanWords.length > 0) {
+        const keyPhrase = cleanWords.join(" ");
+        extracted.push(keyPhrase);
+      }
+    }
+
+    return extracted;
+  };
+
   const handleSend = async () => {
     if (!input.trim()) return;
 
     const userMessage = { sender: "user", text: input };
+    const currentIndex = messages.length;
     setMessages((prev) => [...prev, userMessage]);
+
+    const newKeywords = extractKeywords(input).map((word) => ({
+      word,
+      index: currentIndex, // ✅ link keyword to message index
+    }));
+    setKeywords((prev) => [...prev, ...newKeywords]);
+
     setInput("");
 
     try {
@@ -42,50 +87,74 @@ function Chat() {
     if (e.key === "Enter") handleSend();
   };
 
-  // ✅ Detect code-like responses
+  // ✅ Enhanced Code Block Detector
   const isCodeBlock = (text) => {
-    return (
-      text.includes("#include") ||
-      text.includes("int main") ||
-      text.includes("class") ||
-      text.includes("def ") ||
-      text.includes("public static void main") ||
-      text.includes("```")
-    );
+    const codeIndicators = [
+      "```", "#include", "int main", "class ", "def ", "public static void main",
+      "{", "}", "print(", "return ", ";", "System.out", "cout", "cin"
+    ];
+    return codeIndicators.some((kw) => text.includes(kw));
+  };
+
+  // ✅ Scroll + highlight when keyword clicked
+  const handleKeywordClick = (kw) => {
+    const latestIndex = [...messages]
+      .map((m, i) => (m.sender === "user" && m.text.includes(kw) ? i : -1))
+      .filter(i => i !== -1)
+      .pop(); // latest user message containing keyword
+
+    if (latestIndex !== undefined && latestIndex !== -1 && messageRefs.current[latestIndex]) {
+      messageRefs.current[latestIndex].scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedIndex(latestIndex);
+      setTimeout(() => setHighlightedIndex(null), 1000); // glow for 1s
+    }
   };
 
   return (
-    <div className="chat-container" style={{ padding: "20px", textAlign: "left" }}>
-      <h2 className="chat-title" style={{ color: "#007bff", fontWeight: "bold" }}>
-        🤖 DSA TutorBot
-      </h2>
+    <div className="chat-container">
+      <h2 className="chat-title">🤖 DSA TutorBot</h2>
 
-      <div
-        className="chat-messages"
-        style={{
-          border: "1px solid #ccc",
-          borderRadius: "10px",
-          padding: "10px",
-          height: "400px",
-          overflowY: "auto",
-          backgroundColor: "#f8faff",
-        }}
+      {/* ✅ Floating toggle button */}
+      <button
+        className="keyword-toggle-btn"
+        onClick={() => setShowKeywords(!showKeywords)}
+        title={showKeywords ? "Hide Keywords" : "Show Keywords"}
       >
+        🗝️
+      </button>
+
+      {/* ✅ Collapsible Keyword Window */}
+      <div className={`keyword-window ${showKeywords ? "open" : "closed"}`}>
+        <h4>🗝️ Recent Keywords</h4>
+        {keywords.length > 0 ? (
+          <ul>
+            {keywords.slice(-10).map((k, i) => (
+              <li
+                key={i}
+                onClick={() => handleKeywordClick(k.word)}
+                style={{ cursor: "pointer" }}
+              >
+                {k.word}
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p>No keywords yet</p>
+        )}
+      </div>
+
+      <div className="chat-messages">
         {messages.map((m, i) => (
           <div
             key={i}
-            className={`chat-message ${m.sender === "user" ? "user-msg" : "bot-msg"}`}
-            style={{
-              margin: "10px 0",
-              padding: "8px",
-              borderRadius: "8px",
-              background: m.sender === "user" ? "#007bff" : "#e6f0ff",
-              color: m.sender === "user" ? "white" : "black",
-              whiteSpace: "pre-wrap",
-            }}
+            ref={(el) => (messageRefs.current[i] = el)}
+            className={`chat-message ${
+              m.sender === "user" ? "user-msg" : "bot-msg"
+            } ${highlightedIndex === i ? "highlight" : ""}`}
           >
             {isCodeBlock(m.text) ? (
               <pre
+                className="code-block"
                 style={{
                   background: "#1e1e1e",
                   color: "#dcdcdc",
@@ -96,7 +165,9 @@ function Chat() {
                   marginTop: "5px",
                 }}
               >
-                <code>{m.text.replace(/```/g, "").trim()}</code>
+                <code>
+                  {m.text.replace(/```/g, "").replace(/\\n/g, "\n").trim()}
+                </code>
               </pre>
             ) : (
               m.text
@@ -106,41 +177,14 @@ function Chat() {
         <div ref={messagesEndRef} />
       </div>
 
-      <div
-        className="chat-input-container"
-        style={{
-          marginTop: "15px",
-          display: "flex",
-          justifyContent: "space-between",
-        }}
-      >
+      <div className="chat-input-container">
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyPress={handleKeyPress}
           placeholder="Type your question..."
-          style={{
-            flex: 1,
-            padding: "10px",
-            borderRadius: "8px",
-            border: "1px solid #ccc",
-            outline: "none",
-          }}
         />
-        <button
-          onClick={handleSend}
-          style={{
-            marginLeft: "10px",
-            padding: "10px 16px",
-            backgroundColor: "#007bff",
-            color: "white",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-          }}
-        >
-          Send
-        </button>
+        <button onClick={handleSend}>Send</button>
       </div>
     </div>
   );

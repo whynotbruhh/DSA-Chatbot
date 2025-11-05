@@ -570,3 +570,135 @@
   white-space: pre-wrap;
   color: #1e3a8a;
 }
+/* === Floating Keyword Window === */
+.keyword-window {
+  position: fixed;
+  top: 100px;
+  right: 40px;
+  width: 200px;
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+  padding: 12px 16px;
+  font-size: 0.95rem;
+  z-index: 2000;
+}
+
+.keyword-window h4 {
+  margin-top: 0;
+  font-size: 1rem;
+  color: #1d4ed8;
+  text-align: center;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 6px;
+}
+
+.keyword-window ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0 0;
+}
+
+.keyword-window li {
+  background: #eff6ff;
+  margin-bottom: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-align: center;
+  color: #1e3a8a;
+  font-weight: 500;
+}
+
+.keyword-window p {
+  text-align: center;
+  color: #94a3b8;
+}
+/* === Floating Keyword Toggle === */
+.keyword-toggle-btn {
+  position: fixed;
+  top: 120px;
+  right: 40px;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: #2563eb;
+  color: white;
+  font-size: 1.4rem;
+  font-weight: bold;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+  z-index: 2001;
+  transition: all 0.3s ease;
+}
+
+.keyword-toggle-btn:hover {
+  background: #1e3a8a;
+  transform: scale(1.1);
+}
+
+/* === Keyword Window (collapsible) === */
+.keyword-window {
+  position: fixed;
+  top: 100px;
+  right: 110px;
+  width: 220px;
+  background: white;
+  border: 1px solid #cbd5e1;
+  border-radius: 12px;
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+  padding: 12px 16px;
+  font-size: 0.95rem;
+  z-index: 2000;
+  opacity: 0;
+  transform: scale(0.9);
+  pointer-events: none;
+  transition: all 0.3s ease-in-out;
+}
+
+.keyword-window.open {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+
+.keyword-window h4 {
+  margin-top: 0;
+  font-size: 1rem;
+  color: #1d4ed8;
+  text-align: center;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 6px;
+}
+
+.keyword-window ul {
+  list-style: none;
+  padding: 0;
+  margin: 8px 0 0 0;
+}
+
+.keyword-window li {
+  background: #eff6ff;
+  margin-bottom: 6px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  text-align: center;
+  color: #1e3a8a;
+  font-weight: 500;
+}
+
+.keyword-window p {
+  text-align: center;
+  color: #94a3b8;
+}
+/* === Highlight Glow Effect for Keyword Scroll === */
+@keyframes glowFlash {
+  0% { box-shadow: 0 0 0px rgba(255, 255, 0, 0.8); }
+  50% { box-shadow: 0 0 20px rgba(255, 255, 0, 1); }
+  100% { box-shadow: 0 0 0px rgba(255, 255, 0, 0); }
+}
+
+.highlight {
+  animation: glowFlash 1s ease-in-out;
+}
