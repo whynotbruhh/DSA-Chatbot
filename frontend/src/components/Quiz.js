@@ -8,6 +8,7 @@ function Quiz() {
   const [answers, setAnswers] = useState({});
   const [submitMsg, setSubmitMsg] = useState("");
   const [error, setError] = useState("");
+  const [difficulty, setDifficulty] = useState(null); // ✅ new state for difficulty
 
   const questionSectionRef = useRef(null);
   const topSectionRef = useRef(null);
@@ -29,13 +30,24 @@ function Quiz() {
     setSelectedTopic(topic);
     setError("");
     setSubmitMsg("");
+    setDifficulty(null);
     try {
-      const res = await sendQuizRequest({ mode: "quiz", user_id: "test_user", topic });
+      const res = await sendQuizRequest({
+        mode: "quiz",
+        user_id: "test_user",
+        topic,
+      });
+
+      console.log("Quiz API Full Response:", res.data); // Debugging
+
       if (res.data.error) {
         setError(res.data.error);
         setQuestions([]);
       } else {
-        setQuestions(res.data.questions || []);
+        // ✅ Adjust if backend nests difficulty inside response
+        const responseData = res.data.response ? res.data.response : res.data;
+        setQuestions(responseData.questions || []);
+        setDifficulty(responseData.difficulty || null); // ✅ store difficulty
         setAnswers({});
         setTimeout(() => {
           questionSectionRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -64,6 +76,7 @@ function Quiz() {
         setSubmitMsg("✅ Quiz submitted successfully!");
         setQuestions([]);
         setAnswers({});
+        setDifficulty(null);
         loadTopics();
         setTimeout(() => {
           topSectionRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -88,10 +101,27 @@ function Quiz() {
     }
   };
 
+  // ✅ Render stars for difficulty
+  const renderStars = (level) => {
+    if (!level) return null;
+    const filled = "⭐".repeat(level);
+    const empty = "☆".repeat(5 - level);
+    return (
+      <div className="difficulty-stars">
+        {filled}
+        {empty}
+      </div>
+    );
+  };
+
   return (
     <div className="quiz-container">
-      <div ref={topSectionRef}>
-        <h2>🧩 Take a Quiz</h2>
+      {/* === Header Section === */}
+      <div ref={topSectionRef} className="quiz-header">
+        <div className="quiz-header-top">
+          <h2>🧩 Take a Quiz</h2>
+        </div>
+
         <div>
           {topics.map((t, i) => (
             <div key={i} className="quiz-topic">
@@ -106,10 +136,19 @@ function Quiz() {
             </div>
           ))}
         </div>
+
+        {/* ✅ Difficulty Display Below Topics */}
+        {difficulty && (
+          <div className="difficulty-section">
+            <h4>Difficulty:</h4>
+            {renderStars(difficulty)}
+          </div>
+        )}
       </div>
 
       {error && <p style={{ color: "red" }}>{error}</p>}
 
+      {/* === Quiz Questions === */}
       <div ref={questionSectionRef}>
         <ul>
           {questions.map((q, i) => (
@@ -132,11 +171,13 @@ function Quiz() {
             </li>
           ))}
         </ul>
+
         {questions.length > 0 && (
           <button className="submit-btn" onClick={handleSubmitQuiz}>
             Submit Quiz
           </button>
         )}
+
         {submitMsg && <p style={{ color: "green" }}>{submitMsg}</p>}
       </div>
     </div>
