@@ -105,20 +105,6 @@
   transition: all 0.3s ease;
 }
 
-.quiz-topic button {
-  background-color: #2563eb;
-  color: white;
-  border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.quiz-topic button:hover {
-  background-color: #1e3a8a;
-}
-
 .quiz-topic:hover {
   transform: scale(1.02);
 }
@@ -701,4 +687,44 @@
 
 .highlight {
   animation: glowFlash 1s ease-in-out;
+}
+/* === Quiz Button Color Variants === */
+.retake-btn {
+  background-color: #22c55e; /* Green */
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.retake-btn:hover {
+  background-color: #16a34a;
+  transform: scale(1.05);
+}
+
+.take-btn {
+  background-color: #2563eb; /* Blue */
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.take-btn:hover {
+  background-color: #1e3a8a;
+  transform: scale(1.05);
+}
+
+.locked-btn {
+  background-color: #94a3b8; /* Grey */
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: not-allowed;
+  opacity: 0.8;
 }

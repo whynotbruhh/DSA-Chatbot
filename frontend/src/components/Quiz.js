@@ -75,6 +75,19 @@ function Quiz() {
     }
   };
 
+  const getButtonClass = (status) => {
+    switch (status) {
+      case "Retake Quiz":
+        return "retake-btn";
+      case "Take Quiz":
+        return "take-btn";
+      case "Locked":
+        return "locked-btn";
+      default:
+        return "";
+    }
+  };
+
   return (
     <div className="quiz-container">
       <div ref={topSectionRef}>
@@ -84,6 +97,7 @@ function Quiz() {
             <div key={i} className="quiz-topic">
               <span>{t.topic}</span>
               <button
+                className={getButtonClass(t.status)}
                 onClick={() => handleFetchQuiz(t.topic)}
                 disabled={t.status === "Locked"}
               >
