@@ -130,18 +130,21 @@ def get_unlocked_quiz_index(user_id):
 # -------- LLM Request Handler --------
 def generate_llm_response(mode, user_input=None, topic=None, language=None, history=None):
     try:
+        # ======== PROMPT BUILDER ========
         if mode == "chat":
-            history_str = "\n".join([f"{msg['role'].capitalize()}: {msg['content']}" for msg in history]) if history else "No previous conversation."
+            history_str = "\n".join(
+                [f"{msg['role'].capitalize()}: {msg['content']}" for msg in history]
+            ) if history else "No previous conversation."
             prompt = f"""
             You are a highly knowledgeable and friendly DSA TutorBot.
             Mode: chat
-            
+
             --- Conversation History ---
             {history_str}
             --- End History ---
-            
+
             User Question: {user_input}
-            
+
             Respond only in strict JSON:
             {{
                 "detected_topic": "...",
@@ -149,26 +152,42 @@ def generate_llm_response(mode, user_input=None, topic=None, language=None, hist
                 "complexity": "..."
             }}
             """
+
         elif mode == "quiz":
+            # ✅ Force structured JSON for Mistral output
             prompt = f"""
-            You are a DSA TutorBot.
+            You are a DSA TutorBot generating quizzes.
             Mode: quiz
             Topic: {topic}
-            Respond only in strict JSON:
+
+            Generate exactly 5 multiple-choice questions about the topic "{topic}".
+            Each question must have 4 options (A, B, C, D) and one correct answer.
+            Respond ONLY in valid JSON using this structure:
+
             {{
-                "topic": "...",
-                "questions": [
-                    {{"question": "...", "options": ["...", "..."], "answer": "..."}}
-                ]
+              "topic": "{topic}",
+              "questions": [
+                {{
+                  "question": "string",
+                  "options": ["A", "B", "C", "D"],
+                  "answer": "A"
+                }},
+                ...
+              ]
             }}
+
+            ⚠️ DO NOT include any text, explanation, or formatting outside the JSON.
+            Only output pure JSON that can be parsed directly.
             """
+
         elif mode == "code_eval":
             prompt = f"""
-            You are a DSA TutorBot.
+            You are a DSA TutorBot analyzing code.
             Mode: code_eval
             Topic: {topic}
             Language: {language}
             Code: {user_input}
+
             Respond only in strict JSON:
             {{
                 "syntax_errors": "...",
@@ -181,16 +200,42 @@ def generate_llm_response(mode, user_input=None, topic=None, language=None, hist
         else:
             return {"error": "Invalid mode"}
 
-        headers = {"Authorization": f"Bearer {OPENROUTER_KEY}", "Content-Type": "application/json"}
-        payload = {"model": "gpt-3.5-turbo", "messages": [{"role": "user", "content": prompt}], "temperature": 0}
+        # ======== OPENROUTER REQUEST ========
+        headers = {
+            "Authorization": f"Bearer {OPENROUTER_KEY}",
+            "Content-Type": "application/json"
+        }
+        payload = {
+            "model": "mistralai/mistral-7b-instruct",
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0
+        }
+
         r = requests.post(OPENROUTER_URL, headers=headers, json=payload)
 
         if r.status_code != 200:
             return {"error": f"API call failed with status {r.status_code}"}
 
-        raw_text = r.json()["choices"][0]["message"]["content"]
-        match = re.search(r"\{.*\}", raw_text, re.DOTALL)
-        return json.loads(match.group()) if match else {"raw_response": raw_text}
+        raw_text = r.json()["choices"][0]["message"]["content"].strip()
+
+        # ======== SAFE JSON EXTRACTION ========
+        try:
+            # Try direct JSON parse
+            return json.loads(raw_text)
+        except json.JSONDecodeError:
+            # Try regex-based cleanup for semi-structured text
+            match = re.search(r"\{.*\}", raw_text, re.DOTALL)
+            if match:
+                try:
+                    return json.loads(match.group())
+                except Exception:
+                    pass
+
+            # If all parsing fails, wrap raw text
+            return {
+                "error": "Invalid JSON from model",
+                "raw_response": raw_text
+            }
 
     except Exception as e:
         print("LLM Error:", e)
